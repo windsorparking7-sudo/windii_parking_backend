@@ -245,7 +245,7 @@ router.get('/auth-requests', async (req, res) => {
 // Apply authentication to all routes after this point
 router.use(authenticate);
 
-// Get session by token (public - for car details page) - MOVED BEFORE AUTH
+// Get session by token (public - for car details page) - MOVED BEFORE AUTH - v2
 router.get('/token/:token', async (req, res) => {
   try {
     const { token } = req.params;
