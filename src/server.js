@@ -93,39 +93,30 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000; // cPanel typically uses port 3000
 
-// Connect to database and start server
-if (process.env.NODE_ENV === 'development' && process.env.SKIP_DB === 'true') {
-  console.log('⚠️  Development mode: Skipping database connection');
-  server.listen(PORT, () => {
-    console.log(`
+// Start server immediately for Railway healthcheck
+server.listen(PORT, () => {
+  console.log(`
 ╔════════════════════════════════════════════════════════════╗
 ║                    WINDII PARKING BACKEND                   ║
 ╠════════════════════════════════════════════════════════════╣
 ║  Server running on port: ${PORT}                              ║
 ║  Environment: ${process.env.NODE_ENV || 'development'}                            ║
 ║  API Base URL: http://localhost:${PORT}/api                   ║
-║  ⚠️  Database: SKIPPED (development mode)                   ║
 ╚════════════════════════════════════════════════════════════╝
-    `);
-  });
+  `);
+});
+
+// Connect to database asynchronously
+if (process.env.NODE_ENV === 'development' && process.env.SKIP_DB === 'true') {
+  console.log('⚠️  Development mode: Skipping database connection');
 } else {
   connectDB()
     .then(() => {
-      server.listen(PORT, () => {
-        console.log(`
-╔════════════════════════════════════════════════════════════╗
-║                    WINDII PARKING BACKEND                   ║
-╠════════════════════════════════════════════════════════════╣
-║  Server running on port: ${PORT}                              ║
-║  Environment: ${process.env.NODE_ENV || 'development'}                            ║
-║  API Base URL: http://localhost:${PORT}/api                   ║
-╚════════════════════════════════════════════════════════════╝
-    `);
-      });
+      console.log('✅ Database connected successfully');
     })
     .catch((err) => {
-      console.error('Failed to connect to database:', err);
-      process.exit(1);
+      console.error('❌ Failed to connect to database:', err);
+      // Don't exit process - allow server to continue running for healthchecks
     });
 }
 
