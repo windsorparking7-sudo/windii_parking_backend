@@ -242,8 +242,149 @@ router.get('/auth-requests', async (req, res) => {
   }
 });
 
-// Apply authentication to all routes
+// Apply authentication to all routes after this point
 router.use(authenticate);
+
+// Get session by token (public - for car details page) - MOVED BEFORE AUTH
+router.get('/token/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    const sessions = await query(
+      `SELECT ps.*, c.name as company_name, cu.name as manager_name 
+       FROM parking_sessions ps 
+       JOIN companies c ON ps.company_id = c.id
+       LEFT JOIN company_users cu ON ps.manager_id = cu.id 
+       WHERE ps.token = ?`,
+      [token]
+    );
+
+    if (sessions.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found'
+      });
+    }
+
+    const session = sessions[0];
+
+    // Calculate current fee if still open
+    let currentFee = session.total_fee;
+    if (session.status === 'open') {
+      currentFee = await calculateFee(
+        session.company_id,
+        session.vehicle_type,
+        session.entry_time
+      );
+    }
+
+    res.json({
+      success: true,
+      data: {
+        ...session,
+        currentFee
+      }
+    });
+  } catch (error) {
+    console.error('Get session by token error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch session'
+    });
+  }
+});
+
+// Get car request by token (public - for customer checking status) - MOVED BEFORE AUTH
+router.get('/requests/token/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    const requests = await query(
+      `SELECT cr.*, ps.plate_number, ps.vehicle_model, ps.vehicle_color
+       FROM car_requests cr 
+       LEFT JOIN parking_sessions ps ON cr.session_id = ps.id 
+       WHERE cr.token = ? 
+       ORDER BY cr.id DESC 
+       LIMIT 1`,
+      [token]
+    );
+
+    if (requests.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Car request not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: requests[0]
+    });
+  } catch (error) {
+    console.error('Get request error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get car request'
+    });
+  }
+});
+
+// Update car request status (public - for customer updates) - MOVED BEFORE AUTH
+router.patch('/requests/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body; // 'requested', 'bringing', 'arrived', 'completed'
+
+    if (!['requested', 'bringing', 'arrived', 'completed'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status'
+      });
+    }
+
+    const requests = await query(
+      'SELECT * FROM car_requests WHERE id = ?',
+      [id]
+    );
+
+    if (requests.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Car request not found'
+      });
+    }
+
+    const updateFields = ['status = ?'];
+    const updateValues = [status];
+    
+    if (status === 'bringing') {
+      updateFields.push('bringing_car_at = NOW()');
+    } else if (status === 'arrived') {
+      updateFields.push('car_arrived_at = NOW()');
+    } else if (status === 'completed') {
+      updateFields.push('completed_at = NOW()');
+    }
+    
+    updateValues.push(id);
+
+    await query(
+      `UPDATE car_requests SET ${updateFields.join(', ')} WHERE id = ?`,
+      updateValues
+    );
+
+    res.json({
+      success: true,
+      message: 'Car request status updated',
+      data: { status }
+    });
+  } catch (error) {
+    console.error('Update status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update car request status'
+    });
+  }
+});
 
 // Generate unique token
 const generateToken = () => {
@@ -404,53 +545,7 @@ router.get('/sessions/:id', async (req, res) => {
 });
 
 // Get session by token (public - for car details page)
-router.get('/token/:token', async (req, res) => {
-  try {
-    const { token } = req.params;
-
-    const sessions = await query(
-      `SELECT ps.*, c.name as company_name, cu.name as manager_name 
-       FROM parking_sessions ps 
-       JOIN companies c ON ps.company_id = c.id
-       LEFT JOIN company_users cu ON ps.manager_id = cu.id 
-       WHERE ps.token = ?`,
-      [token]
-    );
-
-    if (sessions.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Session not found'
-      });
-    }
-
-    const session = sessions[0];
-
-    // Calculate current fee if still open
-    let currentFee = session.total_fee;
-    if (session.status === 'open') {
-      currentFee = await calculateFee(
-        session.company_id,
-        session.vehicle_type,
-        session.entry_time
-      );
-    }
-
-    res.json({
-      success: true,
-      data: {
-        ...session,
-        currentFee
-      }
-    });
-  } catch (error) {
-    console.error('Get session by token error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch session'
-    });
-  }
-});
+// Note: This endpoint is now moved above authentication middleware
 
 // Add new parking session
 router.post('/sessions', addParkingSessionValidator, async (req, res) => {
@@ -918,39 +1013,7 @@ router.patch('/requests/:id/status', async (req, res) => {
 });
 
 // Get car request by token (for customer checking status)
-router.get('/requests/token/:token', async (req, res) => {
-  try {
-    const { token } = req.params;
-
-    const requests = await query(
-      `SELECT cr.*, ps.plate_number, ps.vehicle_model, ps.vehicle_color
-       FROM car_requests cr 
-       LEFT JOIN parking_sessions ps ON cr.session_id = ps.id 
-       WHERE cr.token = ? 
-       ORDER BY cr.id DESC 
-       LIMIT 1`,
-      [token]
-    );
-
-    if (requests.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Car request not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      data: requests[0]
-    });
-  } catch (error) {
-    console.error('Get request error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get car request'
-    });
-  }
-});
+// Note: This endpoint is now moved above authentication middleware
 
 // Get all car requests for company (for managers)
 router.get('/requests', async (req, res) => {
