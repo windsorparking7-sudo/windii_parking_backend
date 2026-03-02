@@ -1,0 +1,31 @@
+services:
+  # Web Service
+  - type: web
+    name: windii-backend
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: "npm install --production"
+    startCommand: "node src/server.js"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DB_HOST
+        value: 82.197.65.106
+      - key: DB_PORT
+        value: 3306
+      - key: DB_USER
+        value: windii
+        value: DgHVQBztTvQVP9abc
+      - key: DB_NAME
+        value: windii_parking
+      - key: JWT_SECRET
+        value: windii_parking_super_secret_jwt_key_2024
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: ADMIN_PANEL_URL
+        value: https://yourdomain.com/admin
+      - key: COMPANY_PORTAL_URL
+        value: https://yourdomain.com/company
