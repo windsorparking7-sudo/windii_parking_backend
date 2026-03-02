@@ -1,0 +1,22 @@
+# Enable Node.js application
+PassengerEnabled on
+PassengerAppType node
+PassengerStartupFile src/server.js
+PassengerAppRoot /home/username/windii-backend
+
+# Set environment variables
+PassengerEnvVar NODE_ENV production
+PassengerEnvVar PORT 3000
+
+# Handle API requests
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^api/(.*)$ index.php [L,QSA]
+
+# Security headers
+<IfModule mod_headers.c>
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header always set Access-Control-Allow-Headers "Content-Type, Authorization"
+</IfModule>
