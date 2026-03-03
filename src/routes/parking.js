@@ -253,6 +253,23 @@ router.get('/test-public', async (req, res) => {
   });
 });
 
+// Debug endpoint to list recent tokens
+router.get('/debug-tokens', async (req, res) => {
+  try {
+    const tokens = await query('SELECT id, token, plate_number, vehicle_model, entry_time FROM parking_sessions ORDER BY id DESC LIMIT 10');
+    res.json({
+      success: true,
+      data: tokens
+    });
+  } catch (error) {
+    console.error('Debug tokens error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch tokens'
+    });
+  }
+});
+
 // Get session by token (public - for car details page)
 router.get('/token/:token', async (req, res) => {
   try {
