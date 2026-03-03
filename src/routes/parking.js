@@ -257,6 +257,12 @@ router.get('/test-public', async (req, res) => {
 router.get('/token/:token', async (req, res) => {
   try {
     const { token } = req.params;
+    console.log('=== PUBLIC TOKEN DEBUG ===');
+    console.log('Looking for token:', token);
+
+    // First, let's see what tokens exist
+    const allTokens = await query('SELECT token FROM parking_sessions ORDER BY id DESC LIMIT 10');
+    console.log('Recent tokens in database:', allTokens.map(t => t.token));
 
     const sessions = await query(
       `SELECT ps.*, c.name as company_name, cu.name as manager_name, cu.phone as manager_phone
@@ -267,6 +273,8 @@ router.get('/token/:token', async (req, res) => {
       [token]
     );
 
+    console.log('Query result count:', sessions.length);
+
     if (sessions.length === 0) {
       return res.status(404).json({
         success: false,
@@ -275,6 +283,7 @@ router.get('/token/:token', async (req, res) => {
     }
 
     const session = sessions[0];
+    console.log('Found session:', session.token, session.plate_number);
 
     // Calculate current fee if still open
     let currentFee = session.total_fee;
