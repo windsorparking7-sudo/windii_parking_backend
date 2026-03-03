@@ -366,6 +366,9 @@ router.get('/requests/token/:token', async (req, res) => {
 // Create car request (public - for customers)
 router.post('/requests', async (req, res) => {
   try {
+    console.log('=== CREATE CAR REQUEST DEBUG ===');
+    console.log('Request body:', req.body);
+    
     const { token } = req.body;
 
     if (!token) {
@@ -375,11 +378,15 @@ router.post('/requests', async (req, res) => {
       });
     }
 
+    console.log('Looking for parking session with token:', token);
+
     // Get the parking session by token
     const sessions = await query(
       'SELECT id, company_id, manager_id FROM parking_sessions WHERE token = ?',
       [token]
     );
+
+    console.log('Found sessions:', sessions.length);
 
     if (sessions.length === 0) {
       return res.status(404).json({
@@ -389,12 +396,15 @@ router.post('/requests', async (req, res) => {
     }
 
     const session = sessions[0];
+    console.log('Session found:', session);
 
     // Check if there's already an active car request for this token
     const existingRequests = await query(
       "SELECT id FROM car_requests WHERE token = ? AND status NOT IN ('completed', 'cancelled')",
       [token]
     );
+
+    console.log('Existing requests:', existingRequests.length);
 
     if (existingRequests.length > 0) {
       return res.status(400).json({
@@ -404,10 +414,19 @@ router.post('/requests', async (req, res) => {
     }
 
     // Create new car request
+    console.log('Creating car request with:', {
+      token: token,
+      parking_session_id: session.id,
+      company_id: session.company_id,
+      manager_id: session.manager_id
+    });
+
     const result = await query(`
       INSERT INTO car_requests (token, parking_session_id, company_id, manager_id, status, requested_at)
       VALUES (?, ?, ?, ?, 'requested', NOW())
     `, [token, session.id, session.company_id, session.manager_id]);
+
+    console.log('Car request created:', result);
 
     res.status(201).json({
       success: true,
