@@ -249,7 +249,8 @@ router.get('/test-public', async (req, res) => {
   res.json({
     success: true,
     message: 'Public endpoints are working!',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    version: 'v2.0-fixed'
   });
 });
 
@@ -266,6 +267,32 @@ router.get('/debug-tokens', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch tokens'
+    });
+  }
+});
+
+// Debug endpoint to check car_requests table structure
+router.get('/debug-car-requests', async (req, res) => {
+  try {
+    // Check table structure
+    const structure = await query('DESCRIBE car_requests');
+    
+    // Check if there are any existing requests
+    const existing = await query('SELECT * FROM car_requests LIMIT 5');
+    
+    res.json({
+      success: true,
+      data: {
+        structure: structure,
+        existing_requests: existing
+      }
+    });
+  } catch (error) {
+    console.error('Debug car requests error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to debug car requests',
+      error: error.message
     });
   }
 });
