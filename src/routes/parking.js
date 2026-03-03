@@ -413,7 +413,7 @@ router.post('/requests', async (req, res) => {
 
     // Get the parking session by token
     const sessions = await query(
-      'SELECT id, company_id, manager_id FROM parking_sessions WHERE token = ?',
+      'SELECT id, company_id, manager_id, plate_number FROM parking_sessions WHERE token = ?',
       [token]
     );
 
@@ -449,13 +449,14 @@ router.post('/requests', async (req, res) => {
       token: token,
       session_id: session.id,
       company_id: session.company_id,
-      manager_id: session.manager_id
+      manager_id: session.manager_id,
+      plate_number: session.plate_number
     });
 
     const result = await query(`
-      INSERT INTO car_requests (token, session_id, company_id, manager_id, status, requested_at)
-      VALUES (?, ?, ?, ?, 'requested', NOW())
-    `, [token, session.id, session.company_id, session.manager_id]);
+      INSERT INTO car_requests (token, session_id, company_id, manager_id, plate_number, status, requested_at)
+      VALUES (?, ?, ?, ?, ?, 'requested', NOW())
+    `, [token, session.id, session.company_id, session.manager_id, session.plate_number]);
 
     console.log('Car request created:', result);
 
