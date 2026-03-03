@@ -332,16 +332,20 @@ router.get('/token/:token', async (req, res) => {
 router.get('/requests/token/:token', async (req, res) => {
   try {
     const { token } = req.params;
+    console.log('=== GET CAR REQUEST DEBUG ===');
+    console.log('Looking for car request with token:', token);
 
     const requests = await query(
       `SELECT cr.*, ps.plate_number, ps.vehicle_model, ps.vehicle_color
        FROM car_requests cr 
-       LEFT JOIN parking_sessions ps ON cr.parking_session_id = ps.id 
+       LEFT JOIN parking_sessions ps ON cr.session_id = ps.id 
        WHERE cr.token = ? 
        ORDER BY cr.id DESC 
        LIMIT 1`,
       [token]
     );
+
+    console.log('Found requests:', requests.length);
 
     if (requests.length === 0) {
       return res.status(404).json({
@@ -416,13 +420,13 @@ router.post('/requests', async (req, res) => {
     // Create new car request
     console.log('Creating car request with:', {
       token: token,
-      parking_session_id: session.id,
+      session_id: session.id,
       company_id: session.company_id,
       manager_id: session.manager_id
     });
 
     const result = await query(`
-      INSERT INTO car_requests (token, parking_session_id, company_id, manager_id, status, requested_at)
+      INSERT INTO car_requests (token, session_id, company_id, manager_id, status, requested_at)
       VALUES (?, ?, ?, ?, 'requested', NOW())
     `, [token, session.id, session.company_id, session.manager_id]);
 
