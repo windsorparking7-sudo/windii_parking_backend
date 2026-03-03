@@ -31,7 +31,8 @@ app.use(cors({
     process.env.ADMIN_PANEL_URL || 'http://localhost:3000',
     process.env.COMPANY_PORTAL_URL || 'http://localhost:3001',
     process.env.COMPANY_PORTAL_URL_3 || 'http://localhost:3003',
-    'https://musical-lokum-978ed2.netlify.app'
+    'https://musical-lokum-978ed2.netlify.app',
+    'https://cosmic-marzipan-c99a3f.netlify.app'
   ],
   credentials: true
 }));
