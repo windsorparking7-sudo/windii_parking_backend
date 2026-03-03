@@ -604,10 +604,11 @@ router.post('/sessions', addParkingSessionValidator, async (req, res) => {
       plateNumber, 
       model, 
       color, 
-      vehicleType = 'car'
+      vehicleType = 'car',
+      token
     } = req.body;
 
-    console.log('Extracted data:', { plateNumber, model, color, vehicleType });
+    console.log('Extracted data:', { plateNumber, model, color, vehicleType, token });
 
     if (!plateNumber || !model || !color) {
       return res.status(400).json({
@@ -616,20 +617,21 @@ router.post('/sessions', addParkingSessionValidator, async (req, res) => {
       });
     }
 
-    const token = generateToken();
-    console.log('Generated token:', token);
+    // Use token from frontend, or generate new one if not provided
+    const sessionToken = token || generateToken();
+    console.log('Using token:', sessionToken);
 
     // Simple insert without optional fields
     const result = await query(
       'INSERT INTO parking_sessions (company_id, manager_id, token, plate_number, vehicle_model, vehicle_color, vehicle_type, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [companyId, managerId, token, plateNumber, model, color, vehicleType, 'open']
+      [companyId, managerId, sessionToken, plateNumber, model, color, vehicleType, 'open']
     );
     
     console.log('Database result:', result);
 
     const newSession = {
       id: result.insertId,
-      token,
+      token: sessionToken,
       plateNumber,
       model,
       color,
