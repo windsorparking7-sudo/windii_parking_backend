@@ -242,10 +242,9 @@ router.get('/auth-requests', async (req, res) => {
   }
 });
 
-// Apply authentication to all routes after this point
-router.use(authenticate);
+// PUBLIC ENDPOINTS (no authentication required) - MUST BE BEFORE router.use(authenticate)
 
-// Get session by token (public - for car details page) - MOVED BEFORE AUTH - v2
+// Get session by token (public - for car details page)
 router.get('/token/:token', async (req, res) => {
   try {
     const { token } = req.params;
@@ -294,15 +293,15 @@ router.get('/token/:token', async (req, res) => {
   }
 });
 
-// Get car request by token (public - for customer checking status) - MOVED BEFORE AUTH
+// Get car request by token (public - for customer checking status)
 router.get('/requests/token/:token', async (req, res) => {
   try {
     const { token } = req.params;
 
     const requests = await query(
-      `SELECT cr.*, ps.plate_number, ps.vehicle_model, ps.vehicle_color
+      `SELECT cr.*, ps.license_plate, ps.vehicle_model, ps.vehicle_color
        FROM car_requests cr 
-       LEFT JOIN parking_sessions ps ON cr.session_id = ps.id 
+       LEFT JOIN parking_sessions ps ON cr.parking_session_id = ps.id 
        WHERE cr.token = ? 
        ORDER BY cr.id DESC 
        LIMIT 1`,
@@ -329,62 +328,72 @@ router.get('/requests/token/:token', async (req, res) => {
   }
 });
 
-// Update car request status (public - for customer updates) - MOVED BEFORE AUTH
-router.patch('/requests/:id/status', async (req, res) => {
+// Create car request (public - for customers)
+router.post('/requests', async (req, res) => {
   try {
-    const { id } = req.params;
-    const { status } = req.body; // 'requested', 'bringing', 'arrived', 'completed'
+    const { token } = req.body;
 
-    if (!['requested', 'bringing', 'arrived', 'completed'].includes(status)) {
+    if (!token) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid status'
+        message: 'Token is required'
       });
     }
 
-    const requests = await query(
-      'SELECT * FROM car_requests WHERE id = ?',
-      [id]
+    // Get the parking session by token
+    const sessions = await query(
+      'SELECT id, company_id, manager_id FROM parking_sessions WHERE token = ?',
+      [token]
     );
 
-    if (requests.length === 0) {
+    if (sessions.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Car request not found'
+        message: 'Parking session not found'
       });
     }
 
-    const updateFields = ['status = ?'];
-    const updateValues = [status];
-    
-    if (status === 'bringing') {
-      updateFields.push('bringing_car_at = NOW()');
-    } else if (status === 'arrived') {
-      updateFields.push('car_arrived_at = NOW()');
-    } else if (status === 'completed') {
-      updateFields.push('completed_at = NOW()');
-    }
-    
-    updateValues.push(id);
+    const session = sessions[0];
 
-    await query(
-      `UPDATE car_requests SET ${updateFields.join(', ')} WHERE id = ?`,
-      updateValues
+    // Check if there's already an active car request for this token
+    const existingRequests = await query(
+      "SELECT id FROM car_requests WHERE token = ? AND status NOT IN ('completed', 'cancelled')",
+      [token]
     );
 
-    res.json({
+    if (existingRequests.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'A car request is already in progress for this token'
+      });
+    }
+
+    // Create new car request
+    const result = await query(`
+      INSERT INTO car_requests (token, parking_session_id, company_id, manager_id, status, requested_at)
+      VALUES (?, ?, ?, ?, 'requested', NOW())
+    `, [token, session.id, session.company_id, session.manager_id]);
+
+    res.status(201).json({
       success: true,
-      message: 'Car request status updated',
-      data: { status }
+      message: 'Car request submitted successfully',
+      data: {
+        id: result.insertId,
+        token: token,
+        status: 'requested'
+      }
     });
   } catch (error) {
-    console.error('Update status error:', error);
+    console.error('Create car request error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to update car request status'
+      message: 'Failed to create car request'
     });
   }
 });
+
+// Apply authentication to all routes after this point
+router.use(authenticate);
 
 // Generate unique token
 const generateToken = () => {
