@@ -244,13 +244,22 @@ router.get('/auth-requests', async (req, res) => {
 
 // PUBLIC ENDPOINTS (no authentication required) - MUST BE BEFORE router.use(authenticate)
 
+// Test endpoint to verify deployment
+router.get('/test-public', async (req, res) => {
+  res.json({
+    success: true,
+    message: 'Public endpoints are working!',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Get session by token (public - for car details page)
 router.get('/token/:token', async (req, res) => {
   try {
     const { token } = req.params;
 
     const sessions = await query(
-      `SELECT ps.*, c.name as company_name, cu.name as manager_name 
+      `SELECT ps.*, c.name as company_name, cu.name as manager_name, cu.phone as manager_phone
        FROM parking_sessions ps 
        JOIN companies c ON ps.company_id = c.id
        LEFT JOIN company_users cu ON ps.manager_id = cu.id 
@@ -299,7 +308,7 @@ router.get('/requests/token/:token', async (req, res) => {
     const { token } = req.params;
 
     const requests = await query(
-      `SELECT cr.*, ps.license_plate, ps.vehicle_model, ps.vehicle_color
+      `SELECT cr.*, ps.plate_number, ps.vehicle_model, ps.vehicle_color
        FROM car_requests cr 
        LEFT JOIN parking_sessions ps ON cr.parking_session_id = ps.id 
        WHERE cr.token = ? 
